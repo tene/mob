@@ -4,20 +4,22 @@ knowhow RubyClassHOW {
     has $!name;
     has %!methods;
     has %!attributes;
+    has $!virtual;
 
-    method new(:$name) {
+    method new(:$name, :$virtual) {
         my $obj := pir::repr_instance_of__PP(self);
-        $obj.BUILD(:name($name));
+        $obj.BUILD(:name($name), :virtual($virtual));
         $obj
     }
 
-    method BUILD(:$name) {
-        $!name := $name;
+    method BUILD(:$name, :$virtual) {
+        $!name       := $name;
         $!parent_set := 0;
+        $!virtual    := $virtual;
     }
 
-    method new_type(:$name = '<anon>', :$repr = 'P6opaque') {
-        my $metaclass := self.new(:name($name));
+    method new_type(:$name = '<anon>', :$repr = 'P6opaque', :$virtual = 0) {
+        my $metaclass := self.new(:name($name), :virtual($virtual));
         pir::repr_type_object_for__PPs($metaclass, $repr);
     }
 
@@ -148,7 +150,10 @@ my $t := RubyClassHOW.new_type(:name('RubyObject'));
 pir::set_hll_global__vSP('RubyObject', $t);
 my $h := $t.HOW;
 my $new := method (*@attrs) {
-    my $i := pir::repr_instance_of__PP(self);
+    my $single := self.HOW.new_type(:virtual(1));
+    $single.HOW.add_parent($single,self);
+    $single.HOW.compose($single);
+    my $i := pir::repr_instance_of__PP($single);
     $i.initialize(|@attrs);
     return $i;
 };
@@ -174,5 +179,14 @@ $h.compose($t);
 
 # -------------
 
-my $c := Cow.new("mooooooo");
-$c.speak;
+my $a := Cow.new("mooooooo");
+$a.speak;
+my $b := Cow.new("mooooooo");
+$b.speak;
+
+my $greet := method () {
+    say("ohai");
+};
+$a.HOW.add_method($a.WHAT, 'greet', $greet);
+$a.greet;
+$b.greet;
