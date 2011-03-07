@@ -1,5 +1,6 @@
 knowhow RubyClassHOW {
     has $!parent;
+    has $!parent_set;
     has $!name;
     has %!methods;
     has %!attributes;
@@ -12,6 +13,7 @@ knowhow RubyClassHOW {
 
     method BUILD(:$name) {
         $!name := $name;
+        $!parent_set := 0;
     }
 
     method new_type(:$name = '<anon>', :$repr = 'P6opaque') {
@@ -35,7 +37,10 @@ knowhow RubyClassHOW {
     }
 
     method compose($obj) {
-        $!parent := RubyObject unless $!name eq 'RubyObject' || pir::defined($!parent);
+        if !$!parent_set && $!name ne 'RubyObject' {
+            $!parent := RubyObject;
+            $!parent_set := 1;
+        }
         # Compose attributes.
         for self.attributes($obj, :local<0> ) { $_.compose($obj) }
         $obj;
@@ -66,24 +71,25 @@ knowhow RubyClassHOW {
     }
 
     method add_parent($obj, $parent) {
-        if pir::defined($!parent) {
+        if $!parent_set {
             pir::die("RubyClassHOW does not support multiple inheritance.");
         }
         $!parent := $parent;
+        $!parent_set := 1;
     }
 
     method parents($obj, :$local) {
         my @parents := [];
-        if pir::defined($!parent) {
+        if $!parent_set {
             if $local {
                 @parents.unshift($!parent);
             }
             else {
-                #@parents := $!parent.HOW.parents($obj);
+                @parents := $!parent.HOW.parents($obj);
                 @parents.unshift($!parent);
             }
         }
-        @parents.unshift($obj) unless $local;
+        @parents.unshift($obj.WHAT) unless $local;
         return @parents;
     }
 
@@ -126,8 +132,9 @@ $h.add_method($t, 'new', $new);
 my $bm := method ($type, *%attrs) {
     for $type.HOW.attributes($type, :local) {
         my $name := $_.name;
-        if pir::exists(%attrs, $name) {
-            pir::setattribute__vPPsP(self, $type, $name, %attrs{$name});
+        my $key := pir::substr__ssi($name, 2);
+        if pir::exists(%attrs, $key) {
+            pir::setattribute__vPPsP(self, $type, $name, %attrs{$key});
         }
     }
     return self;
