@@ -20,12 +20,24 @@ knowhow RubyClassHOW {
 
     method new_type(:$name = '<anon>', :$repr = 'P6opaque', :$virtual = 0) {
         my $metaclass := self.new(:name($name), :virtual($virtual));
-        pir::repr_type_object_for__PPs($metaclass, $repr);
+        my $new := pir::repr_type_object_for__PPs($metaclass, $repr);
+        $new;
+    }
+
+    method add_parent($obj, $parent) {
+        if $!virtual && $!parent_set {
+            return $!parent.HOW.add_parent($!parent, $parent);
+        }
+        if $!parent_set {
+            pir::die("RubyClassHOW does not support multiple inheritance.");
+        }
+        $!parent := $parent;
+        $!parent_set := 1;
     }
 
     method add_method($obj, $name, $code_obj) {
         if %!methods{$name} {
-            pir::die("This class already has a method named " ~ $name);
+            pir::die("This class (" ~ $obj.HOW.name() ~ ") already has a method named " ~ $name);
         }
         %!methods{$name} := $code_obj;
     }
@@ -39,12 +51,15 @@ knowhow RubyClassHOW {
     }
 
     method compose($obj) {
-        if !$!parent_set && $!name ne 'RubyObject' {
-            $!parent := RubyObject;
-            $!parent_set := 1;
-        }
+        #if !$!parent_set && $!name ne 'RubyObject' {
+            #    $!parent := RubyObject;
+            #$!parent_set := 1;
+            #}
         # Compose attributes.
         for self.attributes($obj, :local<0> ) { $_.compose($obj) }
+        if $!virtual {
+            $!parent.HOW.compose($!parent);
+        }
         $obj;
     }
 
@@ -61,7 +76,11 @@ knowhow RubyClassHOW {
     }
 
     method name() {
-        return $!name
+        return $!name;
+    }
+
+    method set_name($obj, $name) {
+        $!name := $name;
     }
 
     method attributes($obj, :$local!) {
@@ -72,22 +91,15 @@ knowhow RubyClassHOW {
         return @attrs
     }
 
-    method add_parent($obj, $parent) {
-        if $!parent_set {
-            pir::die("RubyClassHOW does not support multiple inheritance.");
-        }
-        $!parent := $parent;
-        $!parent_set := 1;
-    }
-
     method parents($obj, :$local) {
+        say("» " ~ $!name ~ "::parents");
         my @parents := [];
         if $!parent_set {
             if $local {
                 @parents.unshift($!parent);
             }
             else {
-                @parents := $!parent.HOW.parents($obj);
+                @parents := $!parent.HOW.parents($!parent);
                 @parents.unshift($!parent);
             }
         }
@@ -99,6 +111,7 @@ knowhow RubyClassHOW {
     ## Dispatchy
     ##
     method find_method($obj, $name) {
+        say("» " ~ $!name ~ "." ~ $name);
         my @mro := $obj.HOW.parents($obj);
         for @mro {
             my %meths := $_.HOW.method_table($obj);
@@ -146,29 +159,54 @@ knowhow RubyClassHOW {
 
 # ------------
 
-my $t := RubyClassHOW.new_type(:name('RubyObject'));
-pir::set_hll_global__vSP('RubyObject', $t);
-my $h := $t.HOW;
-my $new := method (*@attrs) {
-    my $single := self.HOW.new_type(:virtual(1));
-    $single.HOW.add_parent($single,self);
-    $single.HOW.compose($single);
-    my $i := pir::repr_instance_of__PP($single);
-    $i.initialize(|@attrs);
-    return $i;
-};
-$h.add_method($t, 'new', $new);
-my $init := method () {
-};
-$h.add_method($t, 'initialize', $init);
-$h.compose(t);
+my $rc := RubyClassHOW.new_type(:name('RubyClass'));
+pir::set_hll_global__vSP('RubyClass', $rc);
 
+my $new := method (*@args) {
+    say("» Constructing a " ~ self.HOW.name());
+    my $single := RubyClassHOW.new_type(:virtual(1));
+    #my $single := pir::repr_instance_of__PP(self);
+    $single.HOW.add_parent($single, self);
+    my $new := pir::repr_instance_of__PP($single);
+    $new.initialize(|@args);
+    return $new;
+};
+RubyClass.HOW.add_method(RubyClass, 'new', $new);
+my $init := method ($super?) {
+    if $super {
+        self.HOW.add_parent(self,$super)
+    }
+};
+RubyClass.HOW.add_method(RubyClass, 'initialize', $init);
+
+my $cm := method () {
+    say("Should only be callable on classes");
+};
+RubyClass.HOW.add_method(RubyClass, 'classmethod', $cm);
+
+#say("Making rubyobject");
+#my $ro := RubyClass.new();
+#pir::set_hll_global__vSP('RubyObject', $ro);
+#RubyObject.HOW.set_name(RubyObject, 'RubyObject');
+#RubyClass.HOW.add_parent(RubyClass, RubyObject);
+
+RubyClass.HOW.compose(RubyClass);
+say("RubyClass composed");
+
+#$init := method () {
+#};
+#RubyObject.HOW.add_method(RubyObject, 'initialize', $init);
+#RubyObject.HOW.compose(RubyObject);
 # -------------
 
-$t := RubyClassHOW.new_type(:name('Cow'));
+say("Making Cow");
+my $t := RubyClass.new();
+$t.HOW.set_name($t, 'Cow');
 pir::set_hll_global__vSP('Cow', $t);
-$h := $t.HOW;
+say("Cow instantiated");
+my $h := $t.HOW;
 $h.add_attribute($t, NQPAttribute.new(:name('@noise')));
+#Cow.HOW.add_parent(Cow, RubyObject);
 $init := method ($noise) {
     pir::setattribute__vPPsP(self, Cow, '@noise', $noise);
 };
@@ -177,6 +215,7 @@ my $speak := method ($self:) { say(pir::getattribute__ppps($self, $t, '@noise'))
 $h.add_method($t, 'speak', $speak);
 $h.compose($t);
 
+say("Cow composed");
 # -------------
 
 my $a := Cow.new("mooooooo");
@@ -189,4 +228,4 @@ my $greet := method () {
 };
 $a.HOW.add_method($a.WHAT, 'greet', $greet);
 $a.greet;
-$b.greet;
+$b.classmethod;
