@@ -109,6 +109,30 @@ knowhow RubyClassHOW {
     }
 }
 
+# ------------
+
+#rubyclass RubyObject {
+#    method new (*%attrs) {
+#        my $i := pir::repr_instance_of__PP(self);
+#        for $i.HOW.parents($i) -> $cl {
+#            $i.build-magic($cl, |%attrs);
+#        }
+#        return $i;
+#    }
+#    method build-magic ($type, *%attrs) {
+#        for $type.HOW.attributes($type, :local) {
+#            my $name := $_.name;
+#            my $key := pir::substr__ssi($name, 2);
+#            if pir::exists(%attrs, $key) {
+#                pir::setattribute__vPPsP(self, $type, $name, %attrs{$key});
+#            }
+#        }
+#        return self;
+#    }
+#}
+
+# ------------
+
 #class Cow
 #    def speak
 #        puts "mooo"
@@ -119,41 +143,36 @@ knowhow RubyClassHOW {
 #c.speak
 
 # ------------
+
 my $t := RubyClassHOW.new_type(:name('RubyObject'));
+pir::set_hll_global__vSP('RubyObject', $t);
 my $h := $t.HOW;
-my $new := method (*%attrs) {
+my $new := method (*@attrs) {
     my $i := pir::repr_instance_of__PP(self);
-    for $i.HOW.parents($i) -> $cl {
-        $i.build-magic($cl, |%attrs);
-    }
+    $i.initialize(|@attrs);
     return $i;
 };
 $h.add_method($t, 'new', $new);
-my $bm := method ($type, *%attrs) {
-    for $type.HOW.attributes($type, :local) {
-        my $name := $_.name;
-        my $key := pir::substr__ssi($name, 2);
-        if pir::exists(%attrs, $key) {
-            pir::setattribute__vPPsP(self, $type, $name, %attrs{$key});
-        }
-    }
-    return self;
+my $init := method () {
 };
-$h.add_method($t, 'build-magic', $bm);
-pir::set_hll_global__vSP('RubyObject', $t);
+$h.add_method($t, 'initialize', $init);
 $h.compose(t);
 
 # -------------
 
 $t := RubyClassHOW.new_type(:name('Cow'));
+pir::set_hll_global__vSP('Cow', $t);
 $h := $t.HOW;
-$h.add_attribute($t, NQPAttribute.new(:name('$!noise')));
-my $speak := method ($self:) { say(pir::getattribute__ppps($self, Cow, '$!noise')); }
+$h.add_attribute($t, NQPAttribute.new(:name('@noise')));
+$init := method ($noise) {
+    pir::setattribute__vPPsP(self, Cow, '@noise', $noise);
+};
+$h.add_method($t, 'initialize', $init);
+my $speak := method ($self:) { say(pir::getattribute__ppps($self, $t, '@noise')); }
 $h.add_method($t, 'speak', $speak);
 $h.compose($t);
-pir::set_hll_global__vSP('Cow', $t);
 
 # -------------
 
-my $c := Cow.new(:noise("mooooooo"));
+my $c := Cow.new("mooooooo");
 $c.speak;
