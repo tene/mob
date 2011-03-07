@@ -1,3 +1,11 @@
 mooooooo
 mooooooo
 ohai
+Method 'greet' not found for invocant of class 'RakudoObject'
+current instr.: '_block11' pc 459 (EVAL_1:18821013)
+called from Sub 'parrot;HLL;Compiler;_block502' pc 27871 (gen/hllgrammar-grammar.pir:995)
+called from Sub 'parrot;HLL;Compiler;eval' pc 27762 (gen/hllgrammar-grammar.pir:954)
+called from Sub 'parrot;HLL;Compiler;_block747' pc 29518 (gen/hllgrammar-grammar.pir:1612)
+called from Sub 'parrot;HLL;Compiler;evalfiles' pc 29389 (gen/hllgrammar-grammar.pir:1550)
+called from Sub 'parrot;HLL;Compiler;command_line' pc 28739 (gen/hllgrammar-grammar.pir:1315)
+called from Sub 'parrot;NQP;Compiler;main' pc 127850 (gen/nqp-grammar.pir:0)
