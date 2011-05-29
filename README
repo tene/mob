@@ -1,0 +1,7 @@
+Run 'make' to build three executables, showing three different ways of loading compiled data, resolved at different times:
+
+* demo-static   compiled in once at compile-time
+* demo-dynamic  resolved once at program start time by the linker
+* demo-runtime  loaded by path at runtime in the program
+
+Use the 'run-dynamic' script included to run demo-dynamic with LD_LIBRARY_PATH set to $(pwd)
