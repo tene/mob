@@ -5,3 +5,5 @@ Run 'make' to build three executables, showing three different ways of loading c
 * demo-runtime  loaded by path at runtime in the program
 
 Use the 'run-dynamic' script included to run demo-dynamic with LD_LIBRARY_PATH set to $(pwd)
+
+With a static inclusion, you need to extra files, but the data will never change.  With dynamic linking, you ran replace the file, but it's loaded by the linker, so you don't get any choice in your program about what gets loaded.  With runtime loading, you choose exactly what to load.
